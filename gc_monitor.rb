@@ -1,20 +1,45 @@
-require 'pp'
 require 'socket'
 
 module GcMonitor
   @@gc_monitor_objs = {}   # TODO
   
   class << self
+    def include_in_subclasses(klass = Object)
+      ObjectSpace.each_object(class << klass; self; end) do |cls|
+        next if cls.ancestors.include?(Exception)
+        next if [GcMonitor, Time].include?(cls)
+        cls.__send__(:include, GcMonitor)
+      end
+    end
+
+    def key(obj)
+      sprintf("%s__%0x", obj.class, obj.object_id)
+    end
+
     def regist(obj, caller)
-      @@gc_monitor_objs[obj.to_s] = [Time.now, caller]
+      @@gc_monitor_objs[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
     end
 
     def release(obj, caller)
-      @@gc_monitor_objs.delete(obj.to_s)
+      @@gc_monitor_objs.delete(GcMonitor.key(obj))
     end
 
-    def dump
-      @@gc_monitor_objs
+    def list(cond = {})
+      cond.keys.inject(@@gc_monitor_objs) {|objs, cond_key|
+        new_objs = nil
+
+        case cond_key
+        when :time
+          now = Time.now
+          new_objs = objs.select do |obj_k, obj_v|
+            obj_v[:time] < now - cond[cond_key]
+          end
+        else
+          raise "Invalid list option [#{cond_key}]"
+        end
+
+        new_objs
+      }.sort_by{|k, v| v[:time]}
     end
 
     def release_proc(proc_str)
@@ -25,13 +50,22 @@ module GcMonitor
     end
 
     def included(base)
-      base.__send__(:alias_method, :initialize_without_gc_monitor_pre, :initialize)
+      class << base
+        return if @gc_monitor_included
+        @gc_monitor_included = true
+      end
+      return unless base.private_methods.include?("initialize")
+      begin
+        base.__send__(:alias_method, :initialize_without_gc_monitor_pre, :initialize)
+      rescue NameError
+        return
+      end
       base.__send__(:alias_method, :initialize, :initialize_with_gc_monitor_pre)
 
       def base.method_added(name)
         return unless name == :initialize
-        return if @is_made_initialize_with_gc_monitor_post
-        @is_made_initialize_with_gc_monitor_post = true
+        return if @made_initialize_with_gc_monitor_post
+        @made_initialize_with_gc_monitor_post = true
         alias_method :initialize_without_gc_monitor_post, :initialize
         alias_method :initialize, :initialize_with_gc_monitor_post
       end
@@ -46,12 +80,16 @@ module GcMonitor
         s = TCPServer.new(host, port)
         loop do
           Thread.new(s.accept) do |c|
-            while command = c.gets.strip
-              next if command.empty?
+            while command_line = c.gets.strip
+              next if command_line.empty?
+
+              command, *args = command_line.split(/\s+/)
 
               case command
-              when 'dump'
-                GcMonitor.dump.each do |obj|
+              when 'list'
+                cond = args.empty? ? {} : {:time => Integer(args[0])}
+                c.puts "now: #{Time.now}"
+                GcMonitor.list(cond).each do |obj|
                   c.puts(obj.inspect)
                 end
               when 'quit'
@@ -86,20 +124,24 @@ module GcMonitor
 end
 
 if $0 == __FILE__
-  class Hoge
-    def initialize(name)
-      @name = name
-    end
-    include GcMonitor
+  require 'date'
+
+  class Date
+    attr_accessor :dummy
   end
 
-  Hoge.release_hook('puts "i am released."')
-  GcMonitor.tcp_server('0.0.0.0', 54321)
+  GcMonitor.include_in_subclasses(Object)
+
+  Date.release_hook('puts "i am released."')
+  # GcMonitor.tcp_server('0.0.0.0', 54321)
 
   20.times do
-    Hoge.new('a' * 50 * 1024 * 1024)
-    sleep 1
+    o = Date.new
+    o.dummy = 'x' * 50 * 1024 * 1024
+    sleep 0.5
   end
 
-  # p GcMonitor.dump.size
+  # GcMonitor.list(:time => 8).each{|rec| p rec} 
+  GcMonitor.list.each{|rec| p rec} 
 end
+
