@@ -1,5 +1,3 @@
-require 'socket'
-
 module GcMonitor
   @@gc_monitor_objs = {}   # TODO
   
@@ -76,6 +74,8 @@ module GcMonitor
     end
 
     def tcp_server(host, port)
+      require 'socket'
+
       Thread.new do
         s = TCPServer.new(host, port)
         loop do
@@ -112,13 +112,13 @@ module GcMonitor
     ObjectSpace.define_finalizer(self, GcMonitor.release_proc(@@gc_monitor_release_hook))
   end
 
-  def initialize_with_gc_monitor_pre(*args)
-    initialize_without_gc_monitor_pre(*args)
+  def initialize_with_gc_monitor_pre(*args, &blk)
+    initialize_without_gc_monitor_pre(*args, &blk)
     regist_gc_monitor(caller)
   end
   
-  def initialize_with_gc_monitor_post(*args)
-    initialize_without_gc_monitor_post(*args)
+  def initialize_with_gc_monitor_post(*args, &blk)
+    initialize_without_gc_monitor_post(*args, &blk)
     regist_gc_monitor(caller)
   end
 end
@@ -132,8 +132,8 @@ if $0 == __FILE__
 
   GcMonitor.include_in_subclasses(Object)
 
-  Date.release_hook('puts "i am released."')
-  # GcMonitor.tcp_server('0.0.0.0', 54321)
+#  Date.release_hook('puts "i am released."')
+  GcMonitor.tcp_server('0.0.0.0', 54321)
 
   20.times do
     o = Date.new
