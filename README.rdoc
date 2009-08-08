@@ -3,6 +3,8 @@ GcMonitor is a Ruby module for monitoring GC.
 
 == Examples
 If you want to monitor the specific class, you may include GcMonitor into the class.
+  
+  require 'gc_monitor'
 
   class Foo
     attr_accessor :dummy
