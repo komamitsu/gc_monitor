@@ -1,6 +1,4 @@
 module GcMonitor
-  @@gc_monitor_objs = {}   # TODO
-  
   class << self
     def include_in_subclasses(klass = Object)
       ObjectSpace.each_object(class << klass; self; end) do |cls|
@@ -15,15 +13,16 @@ module GcMonitor
     end
 
     def regist(obj, caller)
-      @@gc_monitor_objs[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
+      @gc_monitor_objs ||= {}
+      @gc_monitor_objs[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
     end
 
     def release(obj, caller)
-      @@gc_monitor_objs.delete(GcMonitor.key(obj))
+      @gc_monitor_objs.delete(GcMonitor.key(obj))
     end
 
     def list(cond = {})
-      cond.keys.inject(@@gc_monitor_objs) {|objs, cond_key|
+      cond.keys.inject(@gc_monitor_objs) {|objs, cond_key|
         new_objs = nil
 
         case cond_key
@@ -132,10 +131,10 @@ if $0 == __FILE__
 
   GcMonitor.include_in_subclasses(Object)
 
-#  Date.release_hook('puts "i am released."')
-  GcMonitor.tcp_server('0.0.0.0', 54321)
+  Date.release_hook('puts "i am released."')
+  GcMonitor.tcp_server('0.0.0.0', 4321)
 
-  20.times do
+  10.times do
     o = Date.new
     o.dummy = 'x' * 50 * 1024 * 1024
     sleep 0.5
