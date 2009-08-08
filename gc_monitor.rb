@@ -123,8 +123,25 @@ module GcMonitor
 end
 
 if $0 == __FILE__
-  require 'date'
 
+=begin
+  class Foo
+    attr_accessor :dummy
+
+    include GcMonitor
+  end
+
+  Foo.release_hook('puts "i am released."')  # This is option hook, for debug.
+
+  15.times do
+    o = Foo.new
+    o.dummy = 'x' * 150 * 1024 * 1024  # For GC.
+    sleep 0.5
+  end
+
+  GcMonitor.list.each{|rec| p rec}  # Array of the objects not garbage collected.
+=end
+  require 'date'
   class Date
     attr_accessor :dummy
   end
@@ -134,7 +151,7 @@ if $0 == __FILE__
   Date.release_hook('puts "i am released."')
   GcMonitor.tcp_server('0.0.0.0', 4321)
 
-  10.times do
+  20.times do
     o = Date.new
     o.dummy = 'x' * 50 * 1024 * 1024
     sleep 0.5
