@@ -1,5 +1,17 @@
+require 'thread'
+
 module GcMonitor
   class << self
+    def remaining_objects
+      @remaining_objects ||= {}
+      @remaining_objects
+    end
+
+    def mutex
+      @mutex ||= Mutex.new
+      @mutex
+    end
+
     def include_in_subclasses(klass = Object)
       ObjectSpace.each_object(class << klass; self; end) do |cls|
         next if cls.ancestors.include?(Exception)
@@ -13,30 +25,35 @@ module GcMonitor
     end
 
     def regist(obj, caller)
-      @gc_monitor_objs ||= {}
-      @gc_monitor_objs[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
+      mutex.synchronize do
+        remaining_objects[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
+      end
     end
 
     def release(obj, caller)
-      @gc_monitor_objs.delete(GcMonitor.key(obj))
+      mutex.synchronize do
+        remaining_objects.delete(GcMonitor.key(obj))
+      end
     end
 
     def list(cond = {})
-      cond.keys.inject(@gc_monitor_objs) {|objs, cond_key|
-        new_objs = nil
+      mutex.synchronize do
+        cond.keys.inject(remaining_objects) {|objs, cond_key|
+          new_objs = nil
 
-        case cond_key
-        when :time
-          now = Time.now
-          new_objs = objs.select do |obj_k, obj_v|
-            obj_v[:time] < now - cond[cond_key]
+          case cond_key
+          when :time
+            now = Time.now
+            new_objs = objs.select do |obj_k, obj_v|
+              obj_v[:time] < now - cond[cond_key]
+            end
+          else
+            raise "Invalid list option [#{cond_key}]"
           end
-        else
-          raise "Invalid list option [#{cond_key}]"
-        end
 
-        new_objs
-      }.sort_by{|k, v| v[:time]}
+          new_objs
+        }.sort_by{|k, v| v[:time]}
+      end
     end
 
     def release_proc(proc_str)
