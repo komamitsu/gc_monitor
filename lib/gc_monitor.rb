@@ -1,7 +1,7 @@
 require 'thread'
 
 module GcMonitor
-  VERSION = '0.0.1'
+  VERSION = '0.0.2'
 
   class << self
     def remaining_objects
