@@ -54,7 +54,7 @@ Finally, there is TCP/IP interface.
 
   GcMonitor.tcp_server('0.0.0.0', 4321)
 
-And using TCP/IP client, you can monitor realtime by 'list' command.
+And using TCP/IP client, you can monitor the realtime information by 'list' command.
 
   $ telnet localhost 4321
   Trying ::1...
