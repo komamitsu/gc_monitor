@@ -1,6 +1,8 @@
 require 'thread'
 
 module GcMonitor
+  VERSION = '0.0.4'
+
   class << self
     def remaining_objects
       @remaining_objects ||= {}
@@ -71,6 +73,7 @@ module GcMonitor
 
     def included(base)
       class << base
+        @gc_monitor_included ||= false
         return if @gc_monitor_included
         @gc_monitor_included = true
       end
