@@ -1,8 +1,6 @@
 require 'thread'
 
 module GcMonitor
-  VERSION = '0.0.2'
-
   class << self
     def remaining_objects
       @remaining_objects ||= {}
@@ -14,10 +12,14 @@ module GcMonitor
       @mutex
     end
 
+    def out_of_scope?(klass)
+      [GcMonitor, Time, Mutex].include?(klass)
+    end
+
     def include_in_subclasses(klass = Object)
       ObjectSpace.each_object(class << klass; self; end) do |cls|
         next if cls.ancestors.include?(Exception)
-        next if [GcMonitor, Time].include?(cls)
+        next if out_of_scope?(cls)
         cls.__send__(:include, GcMonitor)
       end
     end
@@ -27,12 +29,14 @@ module GcMonitor
     end
 
     def regist(obj, caller)
+      return if out_of_scope?(obj.class)
       mutex.synchronize do
         remaining_objects[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
       end
     end
 
     def release(obj, caller)
+      return if out_of_scope?(obj.class)
       mutex.synchronize do
         remaining_objects.delete(GcMonitor.key(obj))
       end
@@ -70,6 +74,7 @@ module GcMonitor
         return if @gc_monitor_included
         @gc_monitor_included = true
       end
+
       return unless base.private_methods.include?("initialize")
       begin
         base.__send__(:alias_method, :initialize_without_gc_monitor_pre, :initialize)
@@ -77,14 +82,6 @@ module GcMonitor
         return
       end
       base.__send__(:alias_method, :initialize, :initialize_with_gc_monitor_pre)
-
-      def base.method_added(name)
-        return unless name == :initialize
-        return if @made_initialize_with_gc_monitor_post
-        @made_initialize_with_gc_monitor_post = true
-        alias_method :initialize_without_gc_monitor_post, :initialize
-        alias_method :initialize, :initialize_with_gc_monitor_post
-      end
 
       def base.release_hook(proc_str)
         @@gc_monitor_release_hook = proc_str
@@ -131,12 +128,8 @@ module GcMonitor
   end
 
   def initialize_with_gc_monitor_pre(*args, &blk)
+    return if caller.detect{|c| c =~ /in `initialize(?:_with_gc_monitor_pre)?'\z/}
     initialize_without_gc_monitor_pre(*args, &blk)
-    regist_gc_monitor(caller)
-  end
-  
-  def initialize_with_gc_monitor_post(*args, &blk)
-    initialize_without_gc_monitor_post(*args, &blk)
     regist_gc_monitor(caller)
   end
 end

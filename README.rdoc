@@ -8,6 +8,9 @@ If you want to monitor the specific class, you may include GcMonitor into the cl
 
   class Foo
     attr_accessor :dummy
+  end
+
+  class Foo
     include GcMonitor
   end
 
