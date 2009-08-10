@@ -2,13 +2,13 @@
 
 Gem::Specification.new do |s|
   s.name = %q{gc_monitor}
-  s.version = "0.0.4"
+  s.version = "0.0.5"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Mitsunori Komatsu"]
   s.date = %q{2009-08-11}
   s.email = ["komamitsu@gmail.com"]
-  s.extra_rdoc_files = ["History.txt", "Manifest.txt", "PostInstall.txt"]
+  s.extra_rdoc_files = ["README.rdoc", "LICENSE", "History.txt", "Manifest.txt", "PostInstall.txt"]
   s.files = ["History.txt", "Manifest.txt", "PostInstall.txt", "README.rdoc", "LICENSE", "Rakefile", "lib/gc_monitor.rb", "script/console", "script/destroy", "script/generate", "test/test_gc_monitor.rb", "test/test_helper.rb"]
   s.has_rdoc = true
   s.post_install_message = %q{PostInstall.txt}
