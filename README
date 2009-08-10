@@ -1,8 +1,8 @@
 = GcMonitor
-GcMonitor is a Ruby module for monitoring GC.
+GcMonitor is Ruby library for monitoring GC.
 
 == Examples
-If you want to monitor the specific class, you may include GcMonitor into the class.
+If you want to monitor the specific class, then include GcMonitor into the class.
   
   require 'gc_monitor'
 
@@ -22,12 +22,12 @@ If you want to monitor the specific class, you may include GcMonitor into the cl
     sleep 0.5
   end
 
-  GcMonitor.list.each{|rec| p rec}  # Array of the objects not garbage collected.
+  GcMonitor.list.each{|rec| p rec}  # Array of the remaining objects (not garbage collected).
 
-  # You can filter the objects with using :time keyword.
+  # You can filter the objects by :time keyword.
   GcMonitor.list(:time => 8).each{|rec| p rec}  # Only older than 8 sec.
 
-Then "i am released." will be printed when some Foo instancees are collected. At the last codes, array of the remaining objects will be dumped.
+Then "i am released." will be printed when some Foo instances are collected. At the last code, the remaining objects will be dumped.
 
   i am released.
      :

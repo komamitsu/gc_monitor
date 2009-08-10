@@ -1,7 +1,8 @@
 History.txt
 Manifest.txt
 PostInstall.txt
-README.rdoc
+README
+LICENSE
 Rakefile
 lib/gc_monitor.rb
 script/console
