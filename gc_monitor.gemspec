@@ -4,8 +4,8 @@ require File.expand_path('../lib/gc_monitor/version', __FILE__)
 Gem::Specification.new do |gem|
   gem.authors       = ["Mitsunori Komatsu"]
   gem.email         = ["komamitsu@gmail.com"]
-  gem.description   = %q{TODO: Write a gem description}
-  gem.summary       = %q{TODO: Write a gem summary}
+  gem.description   = %q{A Ruby library to monitor leaked objects}
+  gem.summary       = %q{A Ruby library to monitor leaked objects}
   gem.homepage      = ""
 
   gem.files         = `git ls-files`.split($\)
@@ -14,4 +14,5 @@ Gem::Specification.new do |gem|
   gem.name          = "gc_monitor"
   gem.require_paths = ["lib"]
   gem.version       = GcMonitor::VERSION
+  gem.add_dependency "rspec", "~> 2.13.0"
 end
