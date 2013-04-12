@@ -1,23 +1,8 @@
+require "gc_monitor/version"
 require 'thread'
 
 module GcMonitor
-  VERSION = '0.0.5'
-
   class << self
-    def remaining_objects
-      @remaining_objects ||= {}
-      @remaining_objects
-    end
-
-    def mutex
-      @mutex ||= Mutex.new
-      @mutex
-    end
-
-    def out_of_scope?(klass)
-      [GcMonitor, Time, Mutex].include?(klass)
-    end
-
     def include_in_subclasses(klass = Object)
       ObjectSpace.each_object(class << klass; self; end) do |cls|
         next if cls.ancestors.include?(Exception)
@@ -26,26 +11,8 @@ module GcMonitor
       end
     end
 
-    def key(obj)
-      sprintf("%s__%0x", obj.class, obj.object_id)
-    end
-
-    def regist(obj, caller)
-      return if out_of_scope?(obj.class)
-      mutex.synchronize do
-        remaining_objects[GcMonitor.key(obj)] = {:time => Time.now, :caller => caller}
-      end
-    end
-
-    def release(obj, caller)
-      return if out_of_scope?(obj.class)
-      mutex.synchronize do
-        remaining_objects.delete(GcMonitor.key(obj))
-      end
-    end
-
-    def list(cond = {})
-      mutex.synchronize do
+    def list_remaining_objects(cond = {})
+      gc_monitor_mutex.synchronize do
         cond.keys.inject(remaining_objects) {|objs, cond_key|
           new_objs = nil
 
@@ -64,13 +31,6 @@ module GcMonitor
       end
     end
 
-    def release_proc(proc_str)
-      lambda {
-        instance_eval(proc_str)
-        GcMonitor.release(self)
-      }
-    end
-
     def included(base)
       class << base
         @gc_monitor_included ||= false
@@ -78,7 +38,7 @@ module GcMonitor
         @gc_monitor_included = true
       end
 
-      return unless base.private_methods.include?("initialize")
+      return unless base.private_methods.include?(:initialize)
       begin
         base.__send__(:alias_method, :initialize_without_gc_monitor_pre, :initialize)
       rescue NameError
@@ -121,19 +81,65 @@ module GcMonitor
         end
       end
     end
+
+    def gc_monitor_register(obj, caller)
+      return if out_of_scope?(obj.class)
+      gc_monitor_mutex.synchronize do
+        remaining_objects[GcMonitor.gc_monitor_key(obj)] = {:time => Time.now, :caller => caller}
+      end
+    end
+
+    def gc_monitor_key(obj)
+      sprintf("%s__%0x", obj.class, obj.object_id)
+    end
+
+    def gc_monitor_release_proc(klass, key, proc_str)
+      proc {
+        instance_eval(proc_str)
+        GcMonitor.gc_monitor_release(klass, key)
+      }
+    end
+
+    private
+    def gc_monitor_mutex
+      @gc_monitor_mutex ||= Mutex.new
+      @gc_monitor_mutex
+    end
+
+    def out_of_scope?(klass)
+      [GcMonitor, Time, Mutex].include?(klass)
+    end
+
+    def remaining_objects
+      @remaining_objects ||= {}
+      @remaining_objects
+    end
+
+    def gc_monitor_release(klass, key)
+      return if out_of_scope?(klass)
+      gc_monitor_mutex.synchronize do
+        remaining_objects.delete(key)
+      end
+    end
   end
 
   private
-  def regist_gc_monitor(caller)
-    GcMonitor.regist(self, caller)
+  def register_gc_monitor(caller)
+    GcMonitor.gc_monitor_register(self, caller)
     @@gc_monitor_release_hook ||= nil
-    ObjectSpace.define_finalizer(self, GcMonitor.release_proc(@@gc_monitor_release_hook))
+    prc = GcMonitor.gc_monitor_release_proc(
+      self.class,
+      GcMonitor.gc_monitor_key(self),
+      @@gc_monitor_release_hook
+    )
+    ObjectSpace.define_finalizer(self, prc)
+    # ObjectSpace.define_finalizer(self, proc {|id| puts "hoge #{id}"})
   end
 
   def initialize_with_gc_monitor_pre(*args, &blk)
     return if caller.detect{|c| c =~ /in `initialize(?:_with_gc_monitor_pre)?'\z/}
     initialize_without_gc_monitor_pre(*args, &blk)
-    regist_gc_monitor(caller)
+    register_gc_monitor(caller)
   end
 end
 
