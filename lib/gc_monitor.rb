@@ -96,8 +96,15 @@ module GcMonitor
     def gc_monitor_release_proc(klass, key, proc_str)
       proc {
         instance_eval(proc_str)
-        GcMonitor.gc_monitor_release(klass, key)
+        gc_monitor_release(klass, key)
       }
+    end
+
+    def gc_monitor_release(klass, key)
+      return if out_of_scope?(klass)
+      gc_monitor_mutex.synchronize do
+        remaining_objects.delete(key)
+      end
     end
 
     private
@@ -113,13 +120,6 @@ module GcMonitor
     def remaining_objects
       @remaining_objects ||= {}
       @remaining_objects
-    end
-
-    def gc_monitor_release(klass, key)
-      return if out_of_scope?(klass)
-      gc_monitor_mutex.synchronize do
-        remaining_objects.delete(key)
-      end
     end
   end
 
